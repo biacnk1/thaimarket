@@ -385,6 +385,7 @@ function CreateMarketRequestModal({
 
       const res = await fetch("/api/market-requests", {
         method: "POST",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json"
         },
@@ -399,7 +400,7 @@ function CreateMarketRequestModal({
       const json = await readApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(typeof json.error === "string" ? json.error : "Could not submit market request");
+        throw new Error(typeof json.error === "string" ? json.error : `Could not submit market request (${res.status})`);
       }
 
       setStatus("success");
@@ -565,10 +566,10 @@ function ProductPreview() {
   useEffect(() => {
     async function loadMarkets() {
       try {
-        const res = await fetch("/api/markets");
+        const res = await fetch("/api/markets", { cache: "no-store" });
         const json = await readApiResponse(res);
         if (!res.ok || !Array.isArray(json.data)) {
-          throw new Error(typeof json.error === "string" ? json.error : "Market API returned an invalid response");
+          throw new Error(typeof json.error === "string" ? json.error : `Market API returned an invalid response (${res.status})`);
         }
 
         const nextMarkets = json.data.map((market: MarketStat) => normalizeMarket(market));
@@ -622,6 +623,7 @@ function ProductPreview() {
     try {
       const res = await fetch("/api/votes", {
         method: "POST",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
         },

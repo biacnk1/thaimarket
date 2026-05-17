@@ -1,9 +1,13 @@
 import { fail, ok } from "@/lib/api/responses";
 import { demoMarketStats } from "@/lib/markets/demo";
 import { getLocalApprovedMarkets } from "@/lib/markets/request-queue";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const allowLocalFallback = process.env.NODE_ENV !== "production";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function marketRowToStat(row: {
   id: string;
@@ -25,8 +29,12 @@ function marketRowToStat(row: {
   };
 }
 
+function isActiveMarket<T extends { closes_at: string | null }>(market: T) {
+  return !market.closes_at || new Date(market.closes_at).getTime() > Date.now();
+}
+
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient() ?? (await createSupabaseServerClient());
 
   const { data, error } = await supabase
     .from("market_stats")
@@ -45,7 +53,7 @@ export async function GET() {
       return ok([
         ...(allowLocalFallback ? getLocalApprovedMarkets() : []),
         ...(marketRows ?? []).map(marketRowToStat)
-      ]);
+      ].filter(isActiveMarket));
     }
 
     return allowLocalFallback
@@ -53,7 +61,7 @@ export async function GET() {
       : fail(marketsError.message, 500);
   }
 
-  return ok([...(allowLocalFallback ? getLocalApprovedMarkets() : []), ...(data ?? [])]);
+  return ok([...(allowLocalFallback ? getLocalApprovedMarkets() : []), ...(data ?? [])].filter(isActiveMarket));
 }
 
 export async function POST(request: Request) {

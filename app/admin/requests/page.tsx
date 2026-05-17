@@ -51,11 +51,11 @@ export default function AdminMarketRequestsPage() {
     setError("");
 
     try {
-      const res = await fetch("/api/market-requests");
+      const res = await fetch("/api/market-requests", { cache: "no-store" });
       const json = await readApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(typeof json.error === "string" ? json.error : "Could not load market requests");
+        throw new Error(typeof json.error === "string" ? json.error : `Could not load market requests (${res.status})`);
       }
 
       setRequests(Array.isArray(json.data) ? (json.data as MarketRequest[]) : []);
@@ -72,12 +72,13 @@ export default function AdminMarketRequestsPage() {
 
     try {
       const res = await fetch(`/api/admin/market-requests/${id}/approve`, {
-        method: "POST"
+        method: "POST",
+        cache: "no-store"
       });
       const json = await readApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(typeof json.error === "string" ? json.error : "Could not approve request");
+        throw new Error(typeof json.error === "string" ? json.error : `Could not approve request (${res.status})`);
       }
 
       setRequests((prev) =>

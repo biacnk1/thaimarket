@@ -1,8 +1,12 @@
 import { fail, ok } from "@/lib/api/responses";
 import { approveLocalMarketRequest } from "@/lib/markets/request-queue";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const allowLocalFallback = process.env.NODE_ENV !== "production";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type RouteContext = {
   params: Promise<{
@@ -14,7 +18,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
   const { id } = await params;
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient() ?? (await createSupabaseServerClient());
     const { data: marketRequest, error: requestError } = await supabase
       .from("market_requests")
       .select("*")
@@ -77,6 +81,6 @@ export async function POST(_request: Request, { params }: RouteContext) {
       }
     }
 
-    return fail("Market request not found", 404);
+    return fail(error instanceof Error ? error.message : "Could not approve request", 500);
   }
 }

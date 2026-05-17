@@ -1,9 +1,13 @@
 import { fail, ok } from "@/lib/api/responses";
 import { addLocalMarketRequest, getLocalMarketRequests } from "@/lib/markets/request-queue";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const allowedCategories = new Set(["Thailand", "Politics", "Crypto", "AI", "Economy"]);
 const allowLocalFallback = process.env.NODE_ENV !== "production";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -49,7 +53,7 @@ function validateRequestBody(body: unknown) {
 
 export async function GET() {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient() ?? (await createSupabaseServerClient());
     const { data, error } = await supabase
       .from("market_requests")
       .select("*")
@@ -76,7 +80,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient() ?? (await createSupabaseServerClient());
     const { data, error } = await supabase
       .from("market_requests")
       .insert({
@@ -95,6 +99,7 @@ export async function POST(request: Request) {
     return ok(data, 201);
   } catch (error) {
     console.error("Supabase market request queue unavailable:", error);
-    return allowLocalFallback ? ok(addLocalMarketRequest(result.data), 202) : fail("Could not submit market request", 500);
+    const message = error instanceof Error ? error.message : "Could not submit market request";
+    return allowLocalFallback ? ok(addLocalMarketRequest(result.data), 202) : fail(message, 500);
   }
 }
