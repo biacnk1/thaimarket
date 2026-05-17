@@ -24,6 +24,22 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+async function readApiResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return {
+      error: text
+    };
+  }
+}
+
 export default function AdminMarketRequestsPage() {
   const [requests, setRequests] = useState<MarketRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,13 +52,13 @@ export default function AdminMarketRequestsPage() {
 
     try {
       const res = await fetch("/api/market-requests");
-      const json = await res.json();
+      const json = await readApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json.error || "Could not load market requests");
+        throw new Error(typeof json.error === "string" ? json.error : "Could not load market requests");
       }
 
-      setRequests(json.data ?? []);
+      setRequests(Array.isArray(json.data) ? (json.data as MarketRequest[]) : []);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not load market requests");
     } finally {
@@ -58,10 +74,10 @@ export default function AdminMarketRequestsPage() {
       const res = await fetch(`/api/admin/market-requests/${id}/approve`, {
         method: "POST"
       });
-      const json = await res.json();
+      const json = await readApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json.error || "Could not approve request");
+        throw new Error(typeof json.error === "string" ? json.error : "Could not approve request");
       }
 
       setRequests((prev) =>

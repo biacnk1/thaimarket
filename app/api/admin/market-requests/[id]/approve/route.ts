@@ -10,7 +10,6 @@ type RouteContext = {
 
 export async function POST(_request: Request, { params }: RouteContext) {
   const { id } = await params;
-  const supabase = await createSupabaseServerClient();
 
   const localRequest = approveLocalMarketRequest(id);
   if (localRequest) {
@@ -21,6 +20,7 @@ export async function POST(_request: Request, { params }: RouteContext) {
   }
 
   try {
+    const supabase = await createSupabaseServerClient();
     const { data: marketRequest, error: requestError } = await supabase
       .from("market_requests")
       .select("*")
