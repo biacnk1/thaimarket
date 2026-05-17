@@ -714,12 +714,6 @@ export default function ThaiPredictionBoardPrototype() {
             <button className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.08]">
               Sign in
             </button>
-            <a
-              href="/admin/requests"
-              className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.08]"
-            >
-              Admin
-            </a>
             <button
               onClick={() => setIsCreateMarketOpen(true)}
               className="rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_0_30px_rgba(34,211,238,0.18)]"
@@ -739,12 +733,12 @@ export default function ThaiPredictionBoardPrototype() {
             <p className="mt-2 text-3xl font-bold">49.3K</p>
           </GlassCard>
           <GlassCard className="p-5">
-            <p className="text-sm text-slate-500">Stack</p>
-            <p className="mt-2 text-3xl font-bold">Next</p>
+            <p className="text-sm text-slate-500">Active Predictors</p>
+            <p className="mt-2 text-3xl font-bold">1.2K</p>
           </GlassCard>
           <GlassCard className="p-5">
-            <p className="text-sm text-slate-500">Status</p>
-            <p className="mt-2 text-3xl font-bold text-emerald-300">MVP</p>
+            <p className="text-sm text-slate-500">Trending Category</p>
+            <p className="mt-2 text-3xl font-bold text-emerald-300">Crypto</p>
           </GlassCard>
         </section>
 
