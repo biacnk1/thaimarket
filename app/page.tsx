@@ -179,6 +179,22 @@ function getFutureDateTimeLocalValue(days: number) {
   return toDateTimeLocalValue(date);
 }
 
+async function readApiResponse(response: Response) {
+  const text = await response.text();
+
+  if (!text) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return {
+      error: text
+    };
+  }
+}
+
 
 function cn(...classes: Array<string | boolean | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -361,6 +377,12 @@ function CreateMarketRequestModal({
     setMessage("");
 
     try {
+      const closeDate = new Date(closesAt);
+
+      if (Number.isNaN(closeDate.getTime())) {
+        throw new Error("Choose a clear close date and time");
+      }
+
       const res = await fetch("/api/market-requests", {
         method: "POST",
         headers: {
@@ -370,14 +392,14 @@ function CreateMarketRequestModal({
           question,
           description,
           category,
-          closes_at: new Date(closesAt).toISOString()
+          closes_at: closeDate.toISOString()
         })
       });
 
-      const json = await res.json();
+      const json = await readApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json.error || "Could not submit market request");
+        throw new Error(typeof json.error === "string" ? json.error : "Could not submit market request");
       }
 
       setStatus("success");
@@ -392,14 +414,14 @@ function CreateMarketRequestModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-6 backdrop-blur-md sm:py-10">
-      <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-950 p-5 shadow-2xl sm:p-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-black/70 px-3 py-4 backdrop-blur-md sm:px-4 sm:py-10">
+      <div className="mx-auto w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-950 p-4 shadow-2xl sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <div className="mb-2 flex items-center gap-2 text-sm text-cyan-200">
               <PlusCircle size={16} /> New market request
             </div>
-            <h2 className="text-2xl font-bold text-white">Submit a board for approval</h2>
+            <h2 className="text-xl font-bold text-white sm:text-2xl">Submit a board for approval</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">
               The board goes live only after an admin approves it. When auth is connected, this request will include the logged-in user automatically.
             </p>
@@ -434,7 +456,7 @@ function CreateMarketRequestModal({
 
           <div>
             <p className="mb-2 text-sm font-medium text-slate-200">Category</p>
-            <div className="grid gap-2 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {marketRequestCategories.map((item) => (
                 <button
                   key={item}
@@ -481,7 +503,7 @@ function CreateMarketRequestModal({
                 min={getFutureDateTimeLocalValue(1)}
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white outline-none focus:border-cyan-300/60"
               />
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2 sm:flex">
                 {durationOptions.map((option) => (
                   <button
                     key={option.label}
@@ -544,9 +566,9 @@ function ProductPreview() {
     async function loadMarkets() {
       try {
         const res = await fetch("/api/markets");
-        const json = await res.json();
+        const json = await readApiResponse(res);
         if (!res.ok || !Array.isArray(json.data)) {
-          throw new Error(json.error || "Market API returned an invalid response");
+          throw new Error(typeof json.error === "string" ? json.error : "Market API returned an invalid response");
         }
 
         const nextMarkets = json.data.map((market: MarketStat) => normalizeMarket(market));
@@ -609,7 +631,7 @@ function ProductPreview() {
         }),
       });
 
-      const json = await res.json();
+      const json = await readApiResponse(res);
 
       if (!res.ok) {
         console.info("Vote saved locally only:", json.error || "Supabase auth is not active");
