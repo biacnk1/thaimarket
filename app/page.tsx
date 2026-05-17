@@ -707,7 +707,7 @@ export default function ThaiPredictionBoardPrototype() {
             </div>
             <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">Predict what happens next.</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
-              เว็บรวมมุมมองอนาคตของไทย ผ่านการโหวตแบบตลาดทำนาย — preview ครบทั้ง product, backend, database และ deploy
+              เว็บรวมมุมมองอนาคตของไทย ผ่านการโหวตแบบตลาดทำนาย — Project by Bank.J
             </p>
           </div>
           <div className="flex items-center gap-3">
