@@ -47,9 +47,8 @@ function validateRequestBody(body: unknown) {
 }
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
-
   try {
+    const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("market_requests")
       .select("*")
@@ -75,9 +74,8 @@ export async function POST(request: Request) {
     return fail(result.error ?? "Invalid request body", 400);
   }
 
-  const supabase = await createSupabaseServerClient();
-
   try {
+    const supabase = await createSupabaseServerClient();
     const {
       data: { user }
     } = await supabase.auth.getUser();
