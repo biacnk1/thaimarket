@@ -3,6 +3,28 @@ import { demoMarketStats } from "@/lib/markets/demo";
 import { getLocalApprovedMarkets } from "@/lib/markets/request-queue";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+const allowLocalFallback = process.env.NODE_ENV !== "production";
+
+function marketRowToStat(row: {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  status: "open" | "closed" | "resolved";
+  result: "yes" | "no" | null;
+  closes_at: string | null;
+  created_at: string;
+}) {
+  return {
+    ...row,
+    category: row.category ?? "General",
+    total_votes: 0,
+    yes_count: 0,
+    no_count: 0,
+    yes_percentage: 0
+  };
+}
+
 export async function GET() {
   const supabase = await createSupabaseServerClient();
 
@@ -13,10 +35,25 @@ export async function GET() {
 
   if (error) {
     console.error("Supabase market feed unavailable:", error.message);
-    return ok([...getLocalApprovedMarkets(), ...demoMarketStats]);
+
+    const { data: marketRows, error: marketsError } = await supabase
+      .from("markets")
+      .select("id, title, description, category, status, result, closes_at, created_at")
+      .order("created_at", { ascending: false });
+
+    if (!marketsError) {
+      return ok([
+        ...(allowLocalFallback ? getLocalApprovedMarkets() : []),
+        ...(marketRows ?? []).map(marketRowToStat)
+      ]);
+    }
+
+    return allowLocalFallback
+      ? ok([...getLocalApprovedMarkets(), ...demoMarketStats])
+      : fail(marketsError.message, 500);
   }
 
-  return ok([...getLocalApprovedMarkets(), ...(data ?? [])]);
+  return ok([...(allowLocalFallback ? getLocalApprovedMarkets() : []), ...(data ?? [])]);
 }
 
 export async function POST(request: Request) {

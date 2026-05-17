@@ -3,6 +3,7 @@ import { addLocalMarketRequest, getLocalMarketRequests } from "@/lib/markets/req
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const allowedCategories = new Set(["Thailand", "Politics", "Crypto", "AI", "Economy"]);
+const allowLocalFallback = process.env.NODE_ENV !== "production";
 
 function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -56,13 +57,13 @@ export async function GET() {
 
     if (error) {
       console.error("Supabase market request queue unavailable:", error.message);
-      return ok(getLocalMarketRequests());
+      return allowLocalFallback ? ok(getLocalMarketRequests()) : fail(error.message, 500);
     }
 
-    return ok([...getLocalMarketRequests(), ...(data ?? [])]);
+    return ok([...(allowLocalFallback ? getLocalMarketRequests() : []), ...(data ?? [])]);
   } catch (error) {
     console.error("Supabase market request queue unavailable:", error);
-    return ok(getLocalMarketRequests());
+    return allowLocalFallback ? ok(getLocalMarketRequests()) : fail("Could not load market requests", 500);
   }
 }
 
@@ -76,15 +77,11 @@ export async function POST(request: Request) {
 
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
     const { data, error } = await supabase
       .from("market_requests")
       .insert({
         ...result.data,
-        requester_user_id: user?.id ?? null,
+        requester_user_id: null,
         status: "pending"
       })
       .select()
@@ -92,12 +89,12 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Supabase market request queue unavailable:", error.message);
-      return ok(addLocalMarketRequest(result.data), 202);
+      return allowLocalFallback ? ok(addLocalMarketRequest(result.data), 202) : fail(error.message, 500);
     }
 
     return ok(data, 201);
   } catch (error) {
     console.error("Supabase market request queue unavailable:", error);
-    return ok(addLocalMarketRequest(result.data), 202);
+    return allowLocalFallback ? ok(addLocalMarketRequest(result.data), 202) : fail("Could not submit market request", 500);
   }
 }
