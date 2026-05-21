@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BarChart3, CalendarDays, CheckCircle2, Coins, ListChecks, Sparkles } from "lucide-react";
+import { BarChart3, CalendarDays, CheckCircle2, Coins, ListChecks, Sparkles, UserRound } from "lucide-react";
 
 import { isAdminUser } from "@/lib/auth/admin";
 import { getCurrentProfile, getCurrentUser } from "@/lib/auth/server";
@@ -22,11 +22,29 @@ type Market = {
   close_date: string | null;
   closes_at: string | null;
   slug: string | null;
+  creator_user_id: string | null;
+  creator_display_name?: string | null;
+  creator_username?: string | null;
+  creator_avatar_url?: string | null;
+  creator_profile_picture_url?: string | null;
+  created_at: string | null;
   total_predictions: number | null;
+  total_votes?: number | null;
   total_volume: number | null;
   yes_percentage: number | null;
+  no_percentage?: number | null;
+  yes_count?: number | null;
+  no_count?: number | null;
+  yes_votes?: number | null;
+  no_votes?: number | null;
+  yes_votes_count?: number | null;
+  no_votes_count?: number | null;
   yes_amount: number | null;
   no_amount: number | null;
+  yes_points?: number | null;
+  no_points?: number | null;
+  yes_points_volume?: number | null;
+  no_points_volume?: number | null;
 };
 
 type Prediction = {
@@ -66,6 +84,53 @@ function statusClass(status: Market["status"]) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function toNumber(value: number | string | null | undefined) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function getConsensus(market: Market) {
+  const yesVotes = toNumber(market.yes_votes_count ?? market.yes_votes ?? market.yes_count);
+  const noVotes = toNumber(market.no_votes_count ?? market.no_votes ?? market.no_count);
+  const totalVotes = yesVotes + noVotes;
+
+  if (totalVotes === 0) {
+    return {
+      yesVotes,
+      noVotes,
+      yesPercentage: 0,
+      noPercentage: 0
+    };
+  }
+
+  const yesPercentage = Math.round((yesVotes / totalVotes) * 100);
+
+  return {
+    yesVotes,
+    noVotes,
+    yesPercentage,
+    noPercentage: 100 - yesPercentage
+  };
+}
+
+function getCreator(market: Market) {
+  const hasCreator = Boolean(market.creator_user_id || market.creator_username || market.creator_display_name);
+  const displayName = hasCreator
+    ? market.creator_display_name || market.creator_username || "Predictor"
+    : "ThaiMarket Board";
+  const href = market.creator_username
+    ? `/profile/${market.creator_username}`
+    : market.creator_user_id
+      ? `/profile/id/${market.creator_user_id}`
+      : null;
+
+  return {
+    displayName,
+    href,
+    pictureUrl: market.creator_profile_picture_url ?? market.creator_avatar_url
+  };
 }
 
 async function getMarket(slug: string) {
@@ -114,9 +179,12 @@ export default async function MarketDetailPage({ params }: PageProps) {
   const profile = user ? await getCurrentProfile() : null;
   const predictions = user ? await getUserPredictions(user.id, market.id) : [];
   const isAdmin = user ? await isAdminUser(user) : false;
-  const yesPercentage = Number(market.yes_percentage ?? 0);
-  const noPercentage = Math.max(0, 100 - yesPercentage);
+  const { yesVotes, noVotes, yesPercentage, noPercentage } = getConsensus(market);
+  const totalVoteCount = yesVotes + noVotes;
+  const yesPoints = toNumber(market.yes_points_volume ?? market.yes_points ?? market.yes_amount);
+  const noPoints = toNumber(market.no_points_volume ?? market.no_points ?? market.no_amount);
   const closeDate = market.close_date ?? market.closes_at;
+  const creator = getCreator(market);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0B0F19] px-4 py-8 text-white sm:px-6 lg:px-8">
@@ -129,7 +197,7 @@ export default async function MarketDetailPage({ params }: PageProps) {
       />
       <div className="relative mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1fr_400px]">
         <section className="space-y-6">
-          <Link href="/" className="text-sm text-cyan-200 hover:text-cyan-100">
+          <Link href="/feed" className="text-sm text-cyan-200 hover:text-cyan-100">
             Back to markets
           </Link>
 
@@ -156,21 +224,51 @@ export default async function MarketDetailPage({ params }: PageProps) {
               {market.description ?? "No description yet."}
             </p>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+              {creator.pictureUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={creator.pictureUrl}
+                  alt={creator.displayName}
+                  className="h-9 w-9 rounded-full border border-white/10 object-cover"
+                />
+              ) : (
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300">
+                  <UserRound size={16} />
+                </span>
+              )}
+              <div className="min-w-0 text-sm">
+                <p className="text-xs text-slate-500">Created by</p>
+                {creator.href ? (
+                  <Link href={creator.href} className="font-medium text-white hover:text-cyan-200">
+                    {creator.displayName}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-white">{creator.displayName}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-4">
               <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
                 <CalendarDays className="mb-2 text-cyan-200" size={18} />
                 <p className="text-xs text-slate-500">Close date</p>
                 <p className="mt-1 text-sm font-semibold text-white">{formatDate(closeDate)}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                <CalendarDays className="mb-2 text-indigo-200" size={18} />
+                <p className="text-xs text-slate-500">Created</p>
+                <p className="mt-1 text-sm font-semibold text-white">{formatDate(market.created_at)}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
                 <ListChecks className="mb-2 text-emerald-200" size={18} />
                 <p className="text-xs text-slate-500">Predictions</p>
-                <p className="mt-1 text-sm font-semibold text-white">{market.total_predictions ?? 0}</p>
+                <p className="mt-1 text-sm font-semibold text-white">{totalVoteCount}</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
                 <Coins className="mb-2 text-amber-200" size={18} />
                 <p className="text-xs text-slate-500">Volume</p>
-                <p className="mt-1 text-sm font-semibold text-white">{market.total_volume ?? 0} points</p>
+                <p className="mt-1 text-sm font-semibold text-white">{yesPoints + noPoints} points</p>
               </div>
             </div>
 
@@ -186,8 +284,8 @@ export default async function MarketDetailPage({ params }: PageProps) {
                 />
               </div>
               <div className="mt-3 flex justify-between text-xs text-slate-500">
-                <span>{market.yes_amount ?? 0} YES points</span>
-                <span>{market.no_amount ?? 0} NO points</span>
+                <span>{yesVotes} YES votes &bull; {yesPoints} points</span>
+                <span className="text-right">{noVotes} NO votes &bull; {noPoints} points</span>
               </div>
             </div>
           </article>
@@ -239,10 +337,12 @@ export default async function MarketDetailPage({ params }: PageProps) {
             returnPath={`/markets/${market.slug ?? slug}`}
             initialMarket={{
               yes_percentage: yesPercentage,
-              total_predictions: Number(market.total_predictions ?? 0),
-              total_volume: Number(market.total_volume ?? 0),
-              yes_amount: Number(market.yes_amount ?? 0),
-              no_amount: Number(market.no_amount ?? 0)
+              total_predictions: totalVoteCount,
+              total_volume: yesPoints + noPoints,
+              yes_count: yesVotes,
+              no_count: noVotes,
+              yes_amount: yesPoints,
+              no_amount: noPoints
             }}
             isAuthenticated={Boolean(user)}
           />

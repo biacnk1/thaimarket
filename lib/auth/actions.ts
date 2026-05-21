@@ -45,6 +45,8 @@ const reservedUsernames = new Set([
   "thaimarket"
 ]);
 
+const allowedGenders = new Set(["female", "male", "non_binary", "prefer_not_to_say"]);
+
 function readText(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -81,8 +83,37 @@ function normalizeOptionalUrl(value: string) {
   try {
     return new URL(value).toString();
   } catch {
-    throw new Error("Avatar URL must be a valid URL.");
+    throw new Error("Profile picture URL must be a valid URL.");
   }
+}
+
+function readRequiredAge(formData: FormData) {
+  const value = Number(readText(formData, "age"));
+
+  if (!Number.isInteger(value) || value < 13 || value > 120) {
+    throw new Error("Age must be a number between 13 and 120.");
+  }
+
+  return value;
+}
+
+function normalizeLinkList(value: string, label: string) {
+  const links = value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (links.length > 6) {
+    throw new Error(`${label} can include up to 6 links.`);
+  }
+
+  return links.map((link) => {
+    try {
+      return new URL(link).toString();
+    } catch {
+      throw new Error(`${label} must contain valid URLs.`);
+    }
+  });
 }
 
 function errorState(message: string): AuthActionState {
@@ -224,7 +255,7 @@ export async function signIn(_previousState: AuthActionState = idleState, formDa
 
   const login = (readText(formData, "login") || readText(formData, "email")).toLowerCase();
   const password = readText(formData, "password");
-  const redirectTo = readRedirectPath(formData, "/profile");
+  const redirectTo = "/feed";
 
   if (!login || !password) {
     return errorState("Enter your username and password.");
@@ -279,17 +310,29 @@ export async function signUp(_previousState: AuthActionState = idleState, formDa
   const email = readText(formData, "email").toLowerCase();
   const password = readText(formData, "password");
   const displayName = readText(formData, "display_name");
+  const gender = readText(formData, "gender");
+  const province = readText(formData, "province");
   const redirectTo = readRedirectPath(formData, "/profile");
   let username: string | null = null;
+  let age: number;
 
   try {
     username = normalizeUsername(readText(formData, "username"));
+    age = readRequiredAge(formData);
   } catch (error) {
-    return errorState(error instanceof Error ? error.message : "Username is invalid.");
+    return errorState(error instanceof Error ? error.message : "Profile details are invalid.");
   }
 
   if (!email || !password) {
     return errorState("Enter an email and password.");
+  }
+
+  if (!username) {
+    return errorState("Username is required.");
+  }
+
+  if (!displayName) {
+    return errorState("Display name is required.");
   }
 
   if (password.length < 6) {
@@ -298,6 +341,14 @@ export async function signUp(_previousState: AuthActionState = idleState, formDa
 
   if (displayName.length > 60) {
     return errorState("Display name must be 60 characters or fewer.");
+  }
+
+  if (!allowedGenders.has(gender)) {
+    return errorState("Choose a gender option.");
+  }
+
+  if (province.length < 2 || province.length > 60) {
+    return errorState("Province must be 2-60 characters.");
   }
 
   if (isReservedUsername(username)) {
@@ -313,7 +364,10 @@ export async function signUp(_previousState: AuthActionState = idleState, formDa
       email,
       password,
       username,
-      display_name: displayName || email.split("@")[0]
+      display_name: displayName,
+      gender,
+      age,
+      province
     });
 
     if (!result.user) {
@@ -338,7 +392,10 @@ export async function signUp(_previousState: AuthActionState = idleState, formDa
     email_confirm: true,
     user_metadata: {
       username,
-      display_name: displayName || email.split("@")[0]
+      display_name: displayName,
+      gender,
+      age,
+      province
     }
   }).catch((error: unknown) => {
     logSupabaseAuthError("Supabase admin sign up request failed", error);
@@ -363,7 +420,10 @@ export async function signUp(_previousState: AuthActionState = idleState, formDa
     {
       id: data.user.id,
       username,
-      display_name: displayName || email.split("@")[0],
+      display_name: displayName,
+      gender,
+      age,
+      province,
       points_balance: 1000
     },
     { onConflict: "id" }
@@ -413,10 +473,15 @@ export async function updateProfile(_previousState: AuthActionState = idleState,
 
   const displayName = readText(formData, "display_name");
   const bio = readText(formData, "bio");
+  const occupation = readText(formData, "occupation");
+  let socialLinks: string[] = [];
+  let reputationLinks: string[] = [];
   let avatarUrl: string | null = null;
 
   try {
     avatarUrl = normalizeOptionalUrl(readText(formData, "avatar_url"));
+    socialLinks = normalizeLinkList(readText(formData, "social_links"), "Social links");
+    reputationLinks = normalizeLinkList(readText(formData, "reputation_links"), "Reputation links");
   } catch (error) {
     return errorState(error instanceof Error ? error.message : "Profile details are invalid.");
   }
@@ -429,6 +494,10 @@ export async function updateProfile(_previousState: AuthActionState = idleState,
     return errorState("Bio must be 280 characters or fewer.");
   }
 
+  if (occupation.length > 80) {
+    return errorState("Occupation must be 80 characters or fewer.");
+  }
+
   if (!supabase) {
     const currentProfile = await getLocalProfileByUserId(user.id);
 
@@ -438,7 +507,10 @@ export async function updateProfile(_previousState: AuthActionState = idleState,
         username: currentProfile?.username ?? null,
         display_name: displayName || "ThaiMarket user",
         avatar_url: avatarUrl,
-        bio: bio || null
+        bio: bio || null,
+        occupation: occupation || null,
+        social_links: socialLinks,
+        reputation_links: reputationLinks
       });
     } catch (error) {
       return errorState(error instanceof Error ? error.message : "Could not update profile.");
@@ -467,7 +539,11 @@ export async function updateProfile(_previousState: AuthActionState = idleState,
       username: currentProfile?.username ?? null,
       display_name: displayName || user.email?.split("@")[0] || "ThaiMarket user",
       avatar_url: avatarUrl,
+      profile_picture_url: avatarUrl,
       bio: bio || null,
+      occupation: occupation || null,
+      social_links: socialLinks,
+      reputation_links: reputationLinks,
       updated_at: new Date().toISOString()
     },
     { onConflict: "id" }

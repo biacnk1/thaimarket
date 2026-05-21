@@ -33,8 +33,11 @@ export default async function ProfileSettingsPage() {
           profile={{
             username: profile?.username ?? null,
             display_name: profile?.display_name ?? user.email?.split("@")[0] ?? null,
-            avatar_url: profile?.avatar_url ?? null,
-            bio: profile?.bio ?? null
+            avatar_url: profile?.profile_picture_url ?? profile?.avatar_url ?? null,
+            bio: profile?.bio ?? null,
+            occupation: profile?.occupation ?? null,
+            social_links: profile?.social_links ?? [],
+            reputation_links: profile?.reputation_links ?? []
           }}
         />
       </section>

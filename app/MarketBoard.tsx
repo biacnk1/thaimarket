@@ -31,13 +31,19 @@ export type MarketBoardItem = {
   closes_at: string | null;
   created_at?: string | null;
   total_predictions: number | null;
+  total_votes?: number | null;
   total_volume: number | null;
   yes_percentage: number | null;
+  no_percentage?: number | null;
+  yes_count?: number | null;
+  no_count?: number | null;
   yes_amount?: number | null;
   no_amount?: number | null;
+  creator_user_id?: string | null;
   creator_display_name?: string | null;
   creator_username?: string | null;
   creator_avatar_url?: string | null;
+  creator_profile_picture_url?: string | null;
   comment_count?: number | null;
 };
 
@@ -48,7 +54,18 @@ type MarketBoardProps = {
 };
 
 type MarketPatch = Partial<
-  Pick<MarketBoardItem, "yes_percentage" | "total_predictions" | "total_volume" | "yes_amount" | "no_amount">
+  Pick<
+    MarketBoardItem,
+    | "yes_percentage"
+    | "no_percentage"
+    | "total_predictions"
+    | "total_votes"
+    | "total_volume"
+    | "yes_count"
+    | "no_count"
+    | "yes_amount"
+    | "no_amount"
+  >
 >;
 
 const baseCategories = ["All", "Thailand", "Politics", "Crypto", "AI", "Economy"];
@@ -86,26 +103,59 @@ function statusClass(status: MarketBoardItem["status"]) {
   return "border-slate-300/20 bg-slate-300/10 text-slate-200";
 }
 
-function getYesPercentage(market: MarketBoardItem) {
-  const yes = Number(market.yes_percentage ?? 0);
-  if (!Number.isFinite(yes)) return 0;
-  return Math.min(100, Math.max(0, Math.round(yes)));
+function toNumber(value: unknown) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function clampPercentage(value: number) {
+  return Math.min(100, Math.max(0, Math.round(value)));
+}
+
+function getConsensus(market: MarketBoardItem) {
+  const yesVotes = toNumber(market.yes_count);
+  const noVotes = toNumber(market.no_count);
+  const totalVotes = yesVotes + noVotes;
+
+  if (totalVotes > 0) {
+    const yes = Math.round((yesVotes / totalVotes) * 100);
+
+    return {
+      yes,
+      no: 100 - yes
+    };
+  }
+
+  const yes = clampPercentage(toNumber(market.yes_percentage));
+  const no =
+    market.no_percentage === null || market.no_percentage === undefined
+      ? yes > 0
+        ? 100 - yes
+        : 0
+      : clampPercentage(toNumber(market.no_percentage));
+
+  return { yes, no };
 }
 
 function getCreator(market: MarketBoardItem) {
-  const displayName = market.creator_display_name || market.creator_username || "ThaiMarket Board";
-  const href = market.creator_username ? `/u/${market.creator_username}` : null;
+  const hasCreator = Boolean(market.creator_user_id || market.creator_username || market.creator_display_name);
+  const displayName = hasCreator
+    ? market.creator_display_name || market.creator_username || "Predictor"
+    : "ThaiMarket Board";
+  const href = market.creator_username
+    ? `/profile/${market.creator_username}`
+    : market.creator_user_id
+      ? `/profile/id/${market.creator_user_id}`
+      : null;
 
   return {
     displayName,
     href,
-    avatarUrl: market.creator_avatar_url
+    avatarUrl: market.creator_profile_picture_url ?? market.creator_avatar_url
   };
 }
 
-function SentimentBar({ yes }: { yes: number }) {
-  const no = Math.max(0, 100 - yes);
-
+function SentimentBar({ yes, no }: { yes: number; no: number }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs text-slate-400">
@@ -160,7 +210,7 @@ function MarketCard({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const yes = getYesPercentage(market);
+  const { yes, no } = getConsensus(market);
   const volume = Number(market.total_volume ?? 0);
   const predictionCount = Number(market.total_predictions ?? 0);
   const hot = market.status === "open" && (volume >= 500 || predictionCount >= 10 || yes >= 60);
@@ -201,13 +251,21 @@ function MarketCard({
         </span>
       </div>
 
-      <h2 className="line-clamp-2 text-base font-semibold leading-snug text-slate-50 sm:text-lg">{market.title}</h2>
+      <h2 className="line-clamp-2 text-base font-semibold leading-snug sm:text-lg">
+        <Link
+          href={getMarketHref(market)}
+          onClick={(event) => event.stopPropagation()}
+          className="text-slate-50 hover:text-cyan-200"
+        >
+          {market.title}
+        </Link>
+      </h2>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
         {market.description ?? "No description yet."}
       </p>
 
       <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
-        <SentimentBar yes={yes} />
+        <SentimentBar yes={yes} no={no} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
@@ -231,13 +289,23 @@ function MarketCard({
 function readMarketPatch(value: unknown): MarketPatch | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
+  const yesCount = toNumber(record.yes_votes_count ?? record.yes_votes ?? record.yes_count);
+  const noCount = toNumber(record.no_votes_count ?? record.no_votes ?? record.no_count);
+  const yesPoints = toNumber(record.yes_points_volume ?? record.yes_points ?? record.yes_amount);
+  const noPoints = toNumber(record.no_points_volume ?? record.no_points ?? record.no_amount);
+  const totalVotes = yesCount + noCount;
+  const yesPercentage = totalVotes === 0 ? 0 : Math.round((yesCount / totalVotes) * 100);
 
   return {
-    yes_percentage: Number(record.yes_percentage ?? 0),
-    total_predictions: Number(record.total_predictions ?? 0),
-    total_volume: Number(record.total_volume ?? 0),
-    yes_amount: Number(record.yes_amount ?? 0),
-    no_amount: Number(record.no_amount ?? 0)
+    yes_percentage: yesPercentage,
+    no_percentage: totalVotes === 0 ? 0 : 100 - yesPercentage,
+    total_predictions: totalVotes,
+    total_votes: totalVotes,
+    total_volume: yesPoints + noPoints,
+    yes_count: yesCount,
+    no_count: noCount,
+    yes_amount: yesPoints,
+    no_amount: noPoints
   };
 }
 
@@ -270,8 +338,7 @@ function QuickPredictPanel({
   const [amount, setAmount] = useState("100");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
-  const yes = getYesPercentage(market);
-  const no = Math.max(0, 100 - yes);
+  const { yes, no } = getConsensus(market);
   const returnPath = getMarketHref(market);
   const creator = getCreator(market);
   const canSubmit = isAuthenticated && market.status === "open" && status !== "loading";
@@ -355,12 +422,12 @@ function QuickPredictPanel({
         <div className="mb-5 rounded-2xl border border-white/10 bg-black/20 p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-slate-500">Current probability</p>
+              <p className="text-xs text-slate-500">Vote consensus</p>
               <p className="mt-1 text-2xl font-bold text-white">YES {yes}%</p>
             </div>
             <p className="text-sm text-slate-400">NO {no}%</p>
           </div>
-          <SentimentBar yes={yes} />
+          <SentimentBar yes={yes} no={no} />
         </div>
 
         <form className="space-y-4" onSubmit={submitPrediction}>
@@ -410,7 +477,7 @@ function QuickPredictPanel({
             </button>
           ) : (
             <Link
-              href={`/login?next=${encodeURIComponent("/")}`}
+              href={`/login?next=${encodeURIComponent("/feed")}`}
               className="block rounded-2xl bg-gradient-to-r from-cyan-400 to-indigo-500 px-4 py-3 text-center text-sm font-semibold text-white shadow-[0_0_30px_rgba(34,211,238,0.18)]"
             >
               Login to predict

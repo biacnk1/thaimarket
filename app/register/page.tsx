@@ -35,7 +35,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
           <p className="mb-2 text-sm text-cyan-200">Join the signal layer</p>
           <h1 className="text-3xl font-bold">Create your account</h1>
           <p className="mt-3 text-sm leading-6 text-slate-400">
-            Your profile starts simple: identity, bio, and reputation score. The guru layer can grow later.
+            Start with a public handle and basic demographic fields. Profile details can grow later.
           </p>
         </div>
         <RegisterForm redirectTo={redirectTo} />

@@ -9,6 +9,8 @@ type MarketState = {
   yes_percentage: number;
   total_predictions: number;
   total_volume: number;
+  yes_count: number;
+  no_count: number;
   yes_amount: number;
   no_amount: number;
 };
@@ -34,16 +36,46 @@ async function readApiResponse(response: Response) {
   }
 }
 
+function toNumber(value: unknown) {
+  const number = Number(value ?? 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function getConsensus(yesVotes: number, noVotes: number) {
+  const totalVotes = yesVotes + noVotes;
+
+  if (totalVotes === 0) {
+    return {
+      yesPercentage: 0,
+      noPercentage: 0
+    };
+  }
+
+  const yesPercentage = Math.round((yesVotes / totalVotes) * 100);
+
+  return {
+    yesPercentage,
+    noPercentage: 100 - yesPercentage
+  };
+}
+
 function asMarketState(value: unknown): MarketState | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
+  const yesCount = toNumber(record.yes_votes_count ?? record.yes_votes ?? record.yes_count);
+  const noCount = toNumber(record.no_votes_count ?? record.no_votes ?? record.no_count);
+  const yesPoints = toNumber(record.yes_points_volume ?? record.yes_points ?? record.yes_amount);
+  const noPoints = toNumber(record.no_points_volume ?? record.no_points ?? record.no_amount);
+  const { yesPercentage } = getConsensus(yesCount, noCount);
 
   return {
-    yes_percentage: Number(record.yes_percentage ?? 0),
-    total_predictions: Number(record.total_predictions ?? 0),
-    total_volume: Number(record.total_volume ?? 0),
-    yes_amount: Number(record.yes_amount ?? 0),
-    no_amount: Number(record.no_amount ?? 0)
+    yes_percentage: yesPercentage,
+    total_predictions: yesCount + noCount,
+    total_volume: yesPoints + noPoints,
+    yes_count: yesCount,
+    no_count: noCount,
+    yes_amount: yesPoints,
+    no_amount: noPoints
   };
 }
 
@@ -63,7 +95,10 @@ export function PredictionForm({
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  const noPercentage = useMemo(() => Math.max(0, 100 - market.yes_percentage), [market.yes_percentage]);
+  const noPercentage = useMemo(
+    () => getConsensus(market.yes_count, market.no_count).noPercentage,
+    [market.no_count, market.yes_count]
+  );
   const canSubmit = isAuthenticated && marketStatus === "open" && status !== "loading";
 
   async function submitPrediction(event: React.FormEvent<HTMLFormElement>) {
@@ -135,8 +170,8 @@ export function PredictionForm({
           />
         </div>
         <div className="mt-3 flex justify-between text-xs text-slate-500">
-          <span>{market.total_predictions} predictions</span>
-          <span>{market.total_volume} points volume</span>
+          <span>{market.yes_count} YES votes &bull; {market.yes_amount} points</span>
+          <span className="text-right">{market.no_count} NO votes &bull; {market.no_amount} points</span>
         </div>
       </div>
 

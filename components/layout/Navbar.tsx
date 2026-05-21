@@ -19,11 +19,12 @@ export async function Navbar() {
   const profile = user ? await getCurrentProfile() : null;
   const admin = user ? await isAdminUser(user) : false;
   const displayName = profile?.display_name || user?.email?.split("@")[0] || "Profile";
+  const pictureUrl = profile?.profile_picture_url ?? profile?.avatar_url;
 
   return (
     <nav className="border-b border-white/10 bg-[#0B0F19]/90 px-4 py-4 text-white backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/feed" className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-cyan-300 shadow-[0_0_20px_rgba(34,211,238,0.9)]" />
           <span className="text-sm font-semibold tracking-wide text-slate-100">ThaiMarket</span>
         </Link>
@@ -46,9 +47,9 @@ export async function Navbar() {
               href="/profile"
               className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-200 hover:bg-white/[0.08]"
             >
-              {profile?.avatar_url ? (
+              {pictureUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.avatar_url} alt={displayName} className="h-6 w-6 rounded-full object-cover" />
+                <img src={pictureUrl} alt={displayName} className="h-6 w-6 rounded-full object-cover" />
               ) : (
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-400/20 text-xs font-bold text-cyan-100">
                   {getInitials(displayName)}

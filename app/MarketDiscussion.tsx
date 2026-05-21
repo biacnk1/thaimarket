@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, MessageCircle, Send } from "lucide-react";
 
 type CommentAuthor = {
@@ -97,7 +97,7 @@ function AuthorName({ comment }: { comment: MarketComment }) {
 
   if (comment.author?.username) {
     return (
-      <Link href={`/u/${comment.author.username}`} className="font-medium text-white hover:text-cyan-200">
+      <Link href={`/profile/${comment.author.username}`} className="font-medium text-white hover:text-cyan-200">
         {displayName}
       </Link>
     );
@@ -112,21 +112,10 @@ export function MarketDiscussion({
   returnPath,
   variant = "panel"
 }: DiscussionProps) {
-  const [sort, setSort] = useState<"top" | "newest">("newest");
   const [comments, setComments] = useState<MarketComment[]>([]);
   const [body, setBody] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "posting" | "error">("idle");
   const [message, setMessage] = useState("");
-
-  const visibleComments = useMemo(() => {
-    if (sort === "newest") return comments;
-
-    return [...comments].sort((left, right) => {
-      const bodyDelta = right.body.length - left.body.length;
-      if (bodyDelta !== 0) return bodyDelta;
-      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
-    });
-  }, [comments, sort]);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +125,7 @@ export function MarketDiscussion({
       setMessage("");
 
       try {
-        const response = await fetch(`/api/comments?market_id=${encodeURIComponent(marketId)}&sort=${sort}`, {
+        const response = await fetch(`/api/comments?market_id=${encodeURIComponent(marketId)}`, {
           cache: "no-store"
         });
         const json = await readApiResponse(response);
@@ -162,7 +151,7 @@ export function MarketDiscussion({
     return () => {
       cancelled = true;
     };
-  }, [marketId, sort]);
+  }, [marketId]);
 
   async function postComment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -221,21 +210,6 @@ export function MarketDiscussion({
             <p className="text-xs text-slate-500">{comments.length} comments</p>
           </div>
         </div>
-        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-          {(["top", "newest"] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setSort(item)}
-              className={[
-                "rounded-full px-3 py-1 text-xs capitalize transition",
-                sort === item ? "bg-cyan-400/15 text-cyan-100" : "text-slate-400 hover:text-white"
-              ].join(" ")}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
       </div>
 
       {isAuthenticated ? (
@@ -282,13 +256,13 @@ export function MarketDiscussion({
           </div>
         ) : null}
 
-        {visibleComments.length === 0 && status !== "loading" ? (
+        {comments.length === 0 && status !== "loading" ? (
           <p className="rounded-2xl border border-white/10 bg-black/10 p-3 text-sm text-slate-400">
             No comments yet. Start the read on this market.
           </p>
         ) : null}
 
-        {visibleComments.map((comment) => (
+        {comments.map((comment) => (
           <article key={comment.id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-3">
             <div className="mb-2 flex items-center gap-2">
               <AuthorAvatar comment={comment} />

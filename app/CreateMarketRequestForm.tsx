@@ -85,7 +85,7 @@ export function CreateMarketRequestForm({ isAuthenticated }: { isAuthenticated: 
   if (!isAuthenticated) {
     return (
       <Link
-        href="/login?next=/"
+        href="/login?next=/feed"
         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_0_30px_rgba(34,211,238,0.18)]"
       >
         <PlusCircle size={16} /> Create Market

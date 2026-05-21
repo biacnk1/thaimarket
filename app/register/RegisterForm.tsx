@@ -26,6 +26,7 @@ export function RegisterForm({ redirectTo }: { redirectTo: string }) {
           name="display_name"
           type="text"
           maxLength={60}
+          required
           className="w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
           placeholder="Bank.J"
         />
@@ -62,6 +63,60 @@ export function RegisterForm({ redirectTo }: { redirectTo: string }) {
           required
           className="w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
           placeholder="you@example.com"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="age">
+            Age
+          </label>
+          <input
+            id="age"
+            name="age"
+            type="number"
+            min={13}
+            max={120}
+            required
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+            placeholder="28"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="gender">
+            Gender
+          </label>
+          <select
+            id="gender"
+            name="gender"
+            required
+            defaultValue=""
+            className="w-full rounded-2xl border border-white/10 bg-[#101623] px-4 py-3 text-sm text-white outline-none focus:border-cyan-300/60"
+          >
+            <option value="" disabled>
+              Select
+            </option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="non_binary">Non-binary</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="province">
+          Province
+        </label>
+        <input
+          id="province"
+          name="province"
+          type="text"
+          maxLength={60}
+          required
+          className="w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+          placeholder="Bangkok"
         />
       </div>
 

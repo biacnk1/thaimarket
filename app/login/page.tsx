@@ -14,7 +14,7 @@ function readNextPath(value: string | string[] | undefined) {
   const next = Array.isArray(value) ? value[0] : value;
 
   if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/profile";
+    return "/feed";
   }
 
   return next;
@@ -37,7 +37,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const user = await getCurrentUser();
 
   if (user) {
-    redirect(redirectTo);
+    redirect("/feed");
   }
 
   return (

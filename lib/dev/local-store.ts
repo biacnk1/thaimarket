@@ -33,6 +33,11 @@ export type LocalMarketStat = {
   yes_count: number;
   no_count: number;
   yes_percentage: number;
+  creator_user_id?: string | null;
+  creator_display_name?: string | null;
+  creator_username?: string | null;
+  creator_avatar_url?: string | null;
+  creator_profile_picture_url?: string | null;
   sync_status?: "local_dev";
 };
 
@@ -55,6 +60,10 @@ export type LocalAuthUser = {
     username?: string | null;
     display_name?: string | null;
     avatar_url?: string | null;
+    profile_picture_url?: string | null;
+    gender?: string | null;
+    age?: number | null;
+    province?: string | null;
   };
 };
 
@@ -63,9 +72,18 @@ export type LocalProfile = {
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  profile_picture_url: string | null;
   bio: string | null;
+  gender: string | null;
+  age: number | null;
+  province: string | null;
+  occupation: string | null;
+  social_links: string[];
+  reputation_links: string[];
   reputation: number;
+  points: number;
   points_balance: number;
+  streak: number;
   created_at: string;
   updated_at: string;
 };
@@ -223,9 +241,18 @@ function defaultLocalProfile(user: LocalAuthUser): LocalProfile {
     username: user.user_metadata.username ?? null,
     display_name: user.user_metadata.display_name ?? user.email.split("@")[0],
     avatar_url: user.user_metadata.avatar_url ?? null,
+    profile_picture_url: user.user_metadata.profile_picture_url ?? user.user_metadata.avatar_url ?? null,
     bio: null,
+    gender: user.user_metadata.gender ?? null,
+    age: user.user_metadata.age ?? null,
+    province: user.user_metadata.province ?? null,
+    occupation: null,
+    social_links: [],
+    reputation_links: [],
     reputation: 0,
+    points: 0,
     points_balance: 1000,
+    streak: 0,
     created_at: now,
     updated_at: now
   };
@@ -244,6 +271,15 @@ function findProfileByUserId(store: LocalStore, userId: string) {
   }
 
   profile.points_balance ??= 1000;
+  profile.profile_picture_url ??= profile.avatar_url ?? null;
+  profile.gender ??= user.user_metadata.gender ?? null;
+  profile.age ??= user.user_metadata.age ?? null;
+  profile.province ??= user.user_metadata.province ?? null;
+  profile.occupation ??= null;
+  profile.social_links ??= [];
+  profile.reputation_links ??= [];
+  profile.points ??= 0;
+  profile.streak ??= 0;
 
   return profile;
 }
@@ -254,6 +290,10 @@ function createAuthUser(input: {
   username: string | null;
   display_name: string | null;
   avatar_url?: string | null;
+  profile_picture_url?: string | null;
+  gender?: string | null;
+  age?: number | null;
+  province?: string | null;
 }) {
   const now = new Date().toISOString();
   const id = `local-user-${input.email.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -266,7 +306,11 @@ function createAuthUser(input: {
     user_metadata: {
       username: input.username,
       display_name: input.display_name ?? input.email.split("@")[0],
-      avatar_url: input.avatar_url ?? null
+      avatar_url: input.avatar_url ?? null,
+      profile_picture_url: input.profile_picture_url ?? input.avatar_url ?? null,
+      gender: input.gender ?? null,
+      age: input.age ?? null,
+      province: input.province ?? null
     }
   };
 
@@ -305,6 +349,9 @@ export async function createLocalAuthUser(input: {
   password: string;
   username: string | null;
   display_name: string | null;
+  gender: string;
+  age: number;
+  province: string;
 }) {
   return queueStoreWork(async () => {
     const store = await readStore();
@@ -326,7 +373,8 @@ export async function createLocalAuthUser(input: {
 
     const user = createAuthUser({
       ...input,
-      email
+      email,
+      profile_picture_url: null
     });
 
     store.authUsers.push(user);
@@ -408,6 +456,9 @@ export async function updateLocalProfile(input: {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  occupation: string | null;
+  social_links: string[];
+  reputation_links: string[];
 }) {
   return queueStoreWork(async () => {
     const store = await readStore();
@@ -432,13 +483,18 @@ export async function updateLocalProfile(input: {
       username: input.username,
       display_name: input.display_name,
       avatar_url: input.avatar_url,
+      profile_picture_url: input.avatar_url,
       bio: input.bio,
+      occupation: input.occupation,
+      social_links: input.social_links,
+      reputation_links: input.reputation_links,
       updated_at: new Date().toISOString()
     };
 
     user.user_metadata.username = profile.username;
     user.user_metadata.display_name = profile.display_name;
     user.user_metadata.avatar_url = profile.avatar_url;
+    user.user_metadata.profile_picture_url = profile.profile_picture_url;
 
     store.profiles = store.profiles.map((item) => (item.id === input.id ? profile : item));
     await writeStore(store);
@@ -639,6 +695,9 @@ export async function approveLocalMarketRequest(id: string) {
     let market = store.approvedMarkets.find(
       (item) => item.id === `local-market-${request.id}`
     );
+    const creatorProfile = request.requester_user_id
+      ? store.profiles.find((profile) => profile.id === request.requester_user_id) ?? null
+      : null;
 
     if (!market) {
       market = {
@@ -654,6 +713,11 @@ export async function approveLocalMarketRequest(id: string) {
         yes_count: 0,
         no_count: 0,
         yes_percentage: 0,
+        creator_user_id: request.requester_user_id,
+        creator_display_name: creatorProfile?.display_name ?? null,
+        creator_username: creatorProfile?.username ?? null,
+        creator_avatar_url: creatorProfile?.avatar_url ?? null,
+        creator_profile_picture_url: creatorProfile?.profile_picture_url ?? creatorProfile?.avatar_url ?? null,
         sync_status: "local_dev"
       };
 

@@ -20,9 +20,18 @@ export type Profile = {
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  profile_picture_url: string | null;
   bio: string | null;
+  gender: string | null;
+  age: number | null;
+  province: string | null;
+  occupation: string | null;
+  social_links: string[];
+  reputation_links: string[];
   reputation: number;
+  points: number;
   points_balance: number;
+  streak: number;
   created_at: string;
   updated_at: string;
 };
@@ -46,9 +55,18 @@ function fallbackProfile(user: AuthUser): Profile {
     username: readMetadataText(user, "username"),
     display_name: fallbackDisplayName(user),
     avatar_url: readMetadataText(user, "avatar_url"),
+    profile_picture_url: readMetadataText(user, "profile_picture_url") ?? readMetadataText(user, "avatar_url"),
     bio: null,
+    gender: readMetadataText(user, "gender"),
+    age: Number(user.user_metadata?.age) || null,
+    province: readMetadataText(user, "province"),
+    occupation: null,
+    social_links: [],
+    reputation_links: [],
     reputation: 0,
+    points: 0,
     points_balance: 1000,
+    streak: 0,
     created_at: now,
     updated_at: now
   };
@@ -83,7 +101,7 @@ async function ensureProfileForUser(supabase: SupabaseServerClient, user: AuthUs
   const fallback = fallbackProfile(user);
   const { data: profile, error: readError } = await supabase
     .from("profiles")
-    .select("id, username, display_name, avatar_url, bio, reputation, points_balance, created_at, updated_at")
+    .select("id, username, display_name, avatar_url, profile_picture_url, bio, gender, age, province, occupation, social_links, reputation_links, reputation, points, points_balance, streak, created_at, updated_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -103,12 +121,16 @@ async function ensureProfileForUser(supabase: SupabaseServerClient, user: AuthUs
         username: fallback.username,
         display_name: fallback.display_name,
         avatar_url: fallback.avatar_url,
+        profile_picture_url: fallback.profile_picture_url,
         bio: fallback.bio,
+        gender: fallback.gender,
+        age: fallback.age,
+        province: fallback.province,
         points_balance: fallback.points_balance
       },
       { onConflict: "id" }
     )
-    .select("id, username, display_name, avatar_url, bio, reputation, points_balance, created_at, updated_at")
+    .select("id, username, display_name, avatar_url, profile_picture_url, bio, gender, age, province, occupation, social_links, reputation_links, reputation, points, points_balance, streak, created_at, updated_at")
     .single();
 
   if (createdProfile && !upsertError) {

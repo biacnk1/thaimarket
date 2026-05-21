@@ -78,6 +78,7 @@ export default async function ProfilePage() {
   const predictions = await getPredictionHistory(user.id);
   const displayName = profile?.display_name || user.email?.split("@")[0] || "ThaiMarket user";
   const username = profile?.username ? `@${profile.username}` : "No username yet";
+  const pictureUrl = profile?.profile_picture_url ?? profile?.avatar_url;
 
   return (
     <main className="min-h-screen bg-[#0B0F19] px-4 py-8 text-white sm:px-6 lg:px-8">
@@ -85,10 +86,10 @@ export default async function ProfilePage() {
         <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-6 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
-              {profile?.avatar_url ? (
+              {pictureUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={profile.avatar_url}
+                  src={pictureUrl}
                   alt={displayName}
                   className="h-20 w-20 rounded-3xl border border-white/10 object-cover"
                 />

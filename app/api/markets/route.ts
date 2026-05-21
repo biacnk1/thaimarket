@@ -21,6 +21,7 @@ function marketRowToStat(row: {
   close_date?: string | null;
   closes_at: string | null;
   slug?: string | null;
+  creator_user_id?: string | null;
   created_at: string;
 }) {
   return {
@@ -28,14 +29,28 @@ function marketRowToStat(row: {
     category: row.category ?? "General",
     close_date: row.close_date ?? row.closes_at,
     slug: row.slug ?? row.id,
+    creator_user_id: row.creator_user_id ?? null,
+    creator_display_name: null,
+    creator_username: null,
+    creator_avatar_url: null,
+    creator_profile_picture_url: null,
     total_predictions: 0,
     total_volume: 0,
     total_votes: 0,
     yes_count: 0,
     no_count: 0,
+    yes_votes: 0,
+    no_votes: 0,
+    yes_votes_count: 0,
+    no_votes_count: 0,
     yes_amount: 0,
     no_amount: 0,
-    yes_percentage: 0
+    yes_points: 0,
+    no_points: 0,
+    yes_points_volume: 0,
+    no_points_volume: 0,
+    yes_percentage: 0,
+    no_percentage: 0
   };
 }
 
@@ -56,7 +71,7 @@ export async function GET() {
 
     const { data: marketRows, error: marketsError } = await supabase
       .from("markets")
-      .select("id, title, description, category, status, result, resolved_outcome, resolved_at, close_date, closes_at, slug, created_at")
+      .select("id, title, description, category, status, result, resolved_outcome, resolved_at, close_date, closes_at, slug, creator_user_id, created_at")
       .order("created_at", { ascending: false });
 
     if (!marketsError) {
@@ -116,7 +131,8 @@ export async function POST(request: Request) {
       category: category || "General",
       close_date: closeDate,
       closes_at: closeDate,
-      slug: createMarketSlug(title, marketId)
+      slug: createMarketSlug(title, marketId),
+      creator_user_id: user.id
     })
     .select()
     .single();

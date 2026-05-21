@@ -21,6 +21,7 @@ type MarketRequestRow = {
   description: string | null;
   category: string;
   closes_at: string;
+  requester_user_id: string | null;
   status: "pending" | "approved" | "rejected";
 };
 
@@ -33,9 +34,10 @@ type MarketRow = {
   close_date: string | null;
   closes_at: string | null;
   slug: string;
+  creator_user_id: string | null;
 };
 
-function buildMarketPayload(marketRequest: MarketRequestRow) {
+function buildMarketPayload(marketRequest: MarketRequestRow, creatorUserId: string | null) {
   return {
     id: marketRequest.id,
     title: marketRequest.question,
@@ -44,6 +46,7 @@ function buildMarketPayload(marketRequest: MarketRequestRow) {
     close_date: marketRequest.closes_at,
     closes_at: marketRequest.closes_at,
     slug: createMarketSlug(marketRequest.question, marketRequest.id),
+    creator_user_id: creatorUserId,
     status: "open" as const
   };
 }
@@ -108,7 +111,19 @@ export async function POST(_request: Request, { params }: RouteContext) {
     let market = existingMarket;
 
     if (!market) {
-      const marketPayload = buildMarketPayload(marketRequest);
+      const { data: creatorProfile, error: creatorProfileError } = marketRequest.requester_user_id
+        ? await supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", marketRequest.requester_user_id)
+            .maybeSingle<{ id: string }>()
+        : { data: null, error: null };
+
+      if (creatorProfileError && creatorProfileError.code !== "PGRST116") {
+        console.error("Could not resolve market creator profile:", creatorProfileError.message);
+      }
+
+      const marketPayload = buildMarketPayload(marketRequest, creatorProfile?.id ?? null);
       const { data: insertedMarket, error: marketError } = await supabase
         .from("markets")
         .insert(marketPayload)

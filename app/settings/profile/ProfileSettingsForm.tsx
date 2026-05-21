@@ -9,6 +9,9 @@ type ProfileFormValues = {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  occupation: string | null;
+  social_links: string[];
+  reputation_links: string[];
 };
 
 const initialState: AuthActionState = {
@@ -54,7 +57,7 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileFormValues })
 
       <div>
         <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="avatar-url">
-          Avatar URL
+          Profile picture URL
         </label>
         <input
           id="avatar-url"
@@ -63,6 +66,21 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileFormValues })
           defaultValue={profile.avatar_url ?? ""}
           className="w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
           placeholder="https://..."
+        />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="occupation">
+          Occupation
+        </label>
+        <input
+          id="occupation"
+          name="occupation"
+          type="text"
+          maxLength={80}
+          defaultValue={profile.occupation ?? ""}
+          className="w-full rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+          placeholder="Analyst, student, founder..."
         />
       </div>
 
@@ -79,6 +97,36 @@ export function ProfileSettingsForm({ profile }: { profile: ProfileFormValues })
           className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
           placeholder="What markets do you understand best?"
         />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="social-links">
+          Social links
+        </label>
+        <textarea
+          id="social-links"
+          name="social_links"
+          rows={3}
+          defaultValue={profile.social_links.join("\n")}
+          className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+          placeholder="https://x.com/..."
+        />
+        <p className="mt-1 text-xs text-slate-500">One URL per line.</p>
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-medium text-slate-200" htmlFor="reputation-links">
+          Reputation links
+        </label>
+        <textarea
+          id="reputation-links"
+          name="reputation_links"
+          rows={3}
+          defaultValue={profile.reputation_links.join("\n")}
+          className="w-full resize-none rounded-2xl border border-white/10 bg-white/[0.035] px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+          placeholder="https://pantip.com/..."
+        />
+        <p className="mt-1 text-xs text-slate-500">One URL per line.</p>
       </div>
 
       {state.message && (

@@ -55,9 +55,11 @@ async function getMarkets() {
     markets: ((data ?? []) as MarketBoardItem[]).map((market) => ({
       ...market,
       comment_count: commentCounts.get(market.id) ?? 0,
+      creator_user_id: market.creator_user_id ?? null,
       creator_display_name: market.creator_display_name ?? null,
       creator_username: market.creator_username ?? null,
-      creator_avatar_url: market.creator_avatar_url ?? null
+      creator_avatar_url: market.creator_avatar_url ?? null,
+      creator_profile_picture_url: market.creator_profile_picture_url ?? null
     })),
     error: ""
   };

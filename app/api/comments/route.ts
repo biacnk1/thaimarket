@@ -18,15 +18,7 @@ type CommentProfile = {
   avatar_url: string | null;
 };
 
-function sortComments<T extends { body: string; created_at: string }>(comments: T[], sort: string | null) {
-  if (sort === "top") {
-    return [...comments].sort((left, right) => {
-      const bodyDelta = right.body.length - left.body.length;
-      if (bodyDelta !== 0) return bodyDelta;
-      return new Date(right.created_at).getTime() - new Date(left.created_at).getTime();
-    });
-  }
-
+function sortComments<T extends { created_at: string }>(comments: T[]) {
   return [...comments].sort(
     (left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
   );
@@ -54,12 +46,11 @@ function attachAuthors(comments: CommentRow[], profiles: CommentProfile[]) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const marketId = searchParams.get("market_id");
-  const sort = searchParams.get("sort");
 
   if (!marketId) return fail("market_id is required", 400);
 
   if (isLocalMode() || !canUseSupabase()) {
-    const comments = sortComments(await getLocalComments(marketId), sort);
+    const comments = sortComments(await getLocalComments(marketId));
     const profiles = await getLocalProfilesByUserIds(comments.map((comment) => comment.user_id));
 
     return ok(attachAuthors(comments, profiles));
@@ -74,7 +65,7 @@ export async function GET(request: Request) {
 
   if (error) return fail(error.message, 500);
 
-  const comments = sortComments((data ?? []) as CommentRow[], sort);
+  const comments = sortComments((data ?? []) as CommentRow[]);
   const userIds = [...new Set(comments.map((comment) => comment.user_id))];
   const { data: profiles, error: profileError } = userIds.length
     ? await supabase

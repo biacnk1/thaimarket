@@ -8,15 +8,37 @@ create table if not exists public.profiles (
   username text unique,
   display_name text,
   avatar_url text,
+  profile_picture_url text,
   bio text,
+  gender text,
+  age integer,
+  province text,
+  occupation text,
+  social_links jsonb not null default '[]'::jsonb,
+  reputation_links jsonb not null default '[]'::jsonb,
   reputation integer not null default 0,
+  points integer not null default 0,
   points_balance integer not null default 1000,
+  streak integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.profiles
-  add column if not exists points_balance integer;
+  add column if not exists profile_picture_url text,
+  add column if not exists gender text,
+  add column if not exists age integer,
+  add column if not exists province text,
+  add column if not exists occupation text,
+  add column if not exists social_links jsonb not null default '[]'::jsonb,
+  add column if not exists reputation_links jsonb not null default '[]'::jsonb,
+  add column if not exists points integer not null default 0,
+  add column if not exists points_balance integer,
+  add column if not exists streak integer not null default 0;
+
+update public.profiles
+set profile_picture_url = avatar_url
+where profile_picture_url is null and avatar_url is not null;
 
 update public.profiles
 set points_balance = 1000
@@ -47,6 +69,7 @@ create table if not exists public.markets (
   close_date timestamptz,
   slug text,
   closes_at timestamptz,
+  creator_user_id uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -57,7 +80,8 @@ alter table public.markets
   add column if not exists resolved_at timestamptz,
   add column if not exists close_date timestamptz,
   add column if not exists slug text,
-  add column if not exists closes_at timestamptz;
+  add column if not exists closes_at timestamptz,
+  add column if not exists creator_user_id uuid references public.profiles(id) on delete set null;
 
 update public.markets
 set close_date = coalesce(close_date, closes_at)
@@ -83,6 +107,7 @@ alter table public.markets
   alter column slug set not null;
 
 create unique index if not exists markets_slug_key on public.markets (slug);
+create index if not exists markets_creator_user_id_idx on public.markets (creator_user_id);
 
 do $$
 begin
@@ -168,37 +193,64 @@ with prediction_rollup as (
     coalesce(sum(p.amount) filter (where p.side = 'NO'), 0)::int as no_amount
   from public.predictions p
   group by p.market_id
+),
+market_rollup as (
+  select
+    m.id,
+    m.title,
+    m.description,
+    m.category,
+    m.status,
+    m.result,
+    m.resolved_outcome,
+    m.resolved_at,
+    coalesce(m.close_date, m.closes_at) as close_date,
+    coalesce(m.close_date, m.closes_at) as closes_at,
+    m.slug,
+    m.creator_user_id,
+    creator_profile.display_name as creator_display_name,
+    creator_profile.username as creator_username,
+    coalesce(creator_profile.profile_picture_url, creator_profile.avatar_url) as creator_profile_picture_url,
+    coalesce(creator_profile.profile_picture_url, creator_profile.avatar_url) as creator_avatar_url,
+    m.created_at,
+    coalesce(pr.total_predictions, 0)::int as total_predictions,
+    coalesce(pr.total_volume, 0)::int as total_volume,
+    coalesce(pr.total_predictions, 0)::int as total_votes,
+    coalesce(pr.yes_count, 0)::int as yes_count,
+    coalesce(pr.no_count, 0)::int as no_count,
+    coalesce(pr.yes_count, 0)::int as yes_votes,
+    coalesce(pr.no_count, 0)::int as no_votes,
+    coalesce(pr.yes_count, 0)::int as yes_votes_count,
+    coalesce(pr.no_count, 0)::int as no_votes_count,
+    coalesce(pr.yes_amount, 0)::int as yes_amount,
+    coalesce(pr.no_amount, 0)::int as no_amount,
+    coalesce(pr.yes_amount, 0)::int as yes_points,
+    coalesce(pr.no_amount, 0)::int as no_points,
+    coalesce(pr.yes_amount, 0)::int as yes_points_volume,
+    coalesce(pr.no_amount, 0)::int as no_points_volume
+  from public.markets m
+  left join prediction_rollup pr on pr.market_id = m.id
+  left join public.profiles creator_profile on creator_profile.id = m.creator_user_id
 )
 select
-  m.id,
-  m.title,
-  m.description,
-  m.category,
-  m.status,
-  m.result,
-  m.resolved_outcome,
-  m.resolved_at,
-  coalesce(m.close_date, m.closes_at) as close_date,
-  coalesce(m.close_date, m.closes_at) as closes_at,
-  m.slug,
-  m.created_at,
-  coalesce(pr.total_predictions, 0)::int as total_predictions,
-  coalesce(pr.total_volume, 0)::int as total_volume,
-  coalesce(pr.total_predictions, 0)::int as total_votes,
-  coalesce(pr.yes_count, 0)::int as yes_count,
-  coalesce(pr.no_count, 0)::int as no_count,
-  coalesce(pr.yes_amount, 0)::int as yes_amount,
-  coalesce(pr.no_amount, 0)::int as no_amount,
+  market_rollup.*,
   case
-    when coalesce(pr.total_volume, 0) = 0 then 0
+    when market_rollup.total_votes = 0 then 0
     else round(
-      coalesce(pr.yes_amount, 0)::numeric
-      / pr.total_volume::numeric
+      market_rollup.yes_count::numeric
+      / market_rollup.total_votes::numeric
       * 100
     )::int
-  end as yes_percentage
-from public.markets m
-left join prediction_rollup pr on pr.market_id = m.id;
+  end as yes_percentage,
+  case
+    when market_rollup.total_votes = 0 then 0
+    else 100 - round(
+      market_rollup.yes_count::numeric
+      / market_rollup.total_votes::numeric
+      * 100
+    )::int
+  end as no_percentage
+from market_rollup;
 
 grant select on public.market_stats to anon, authenticated;
 
@@ -239,7 +291,7 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, username, display_name, avatar_url)
+  insert into public.profiles (id, username, display_name, avatar_url, profile_picture_url, gender, age, province)
   values (
     new.id,
     nullif(new.raw_user_meta_data ->> 'username', ''),
@@ -247,7 +299,18 @@ begin
       nullif(new.raw_user_meta_data ->> 'display_name', ''),
       split_part(new.email, '@', 1)
     ),
-    nullif(new.raw_user_meta_data ->> 'avatar_url', '')
+    nullif(new.raw_user_meta_data ->> 'avatar_url', ''),
+    coalesce(
+      nullif(new.raw_user_meta_data ->> 'profile_picture_url', ''),
+      nullif(new.raw_user_meta_data ->> 'avatar_url', '')
+    ),
+    nullif(new.raw_user_meta_data ->> 'gender', ''),
+    case
+      when coalesce(new.raw_user_meta_data ->> 'age', '') ~ '^[0-9]+$'
+        then (new.raw_user_meta_data ->> 'age')::integer
+      else null
+    end,
+    nullif(new.raw_user_meta_data ->> 'province', '')
   )
   on conflict (id) do nothing;
 
