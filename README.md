@@ -44,6 +44,21 @@ Open:
 http://localhost:3000
 ```
 
+## Local-first dev mode
+
+By default the app now boots in local mode:
+
+```env
+APP_DATA_MODE=local
+NEXT_PUBLIC_APP_DATA_MODE=local
+```
+
+What local mode does:
+
+- Saves market requests, approvals, votes, and comments to `.data/thaimarket-local.json`
+- Keeps the full board flow usable without Supabase
+- Persists local dev data across Next.js reloads
+
 ## Supabase setup
 
 1. Create a Supabase project.
@@ -54,11 +69,20 @@ http://localhost:3000
 supabase/schema.sql
 ```
 
-4. Copy project values into `.env.local` for local development:
+4. Switch `.env.local` to Supabase mode and copy project values:
 
 ```env
+APP_DATA_MODE=supabase
+NEXT_PUBLIC_APP_DATA_MODE=supabase
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+```
+
+Optional for admin-only server actions:
+
+```env
+SUPABASE_SERVICE_ROLE_KEY=
+ADMIN_EMAILS=
 ```
 
 The MVP currently allows public market-request review/approval so testers can play without auth. Before production, replace the MVP policies in `supabase/schema.sql` with admin-only policies and wire Supabase Auth.

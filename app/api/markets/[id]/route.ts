@@ -1,5 +1,6 @@
 import { fail, ok } from "@/lib/api/responses";
-import { demoMarketStats } from "@/lib/markets/demo";
+import { getCurrentUser } from "@/lib/auth/server";
+import { canUseSupabase } from "@/lib/env";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -8,48 +9,44 @@ type RouteContext = {
   }>;
 };
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export async function GET(_request: Request, { params }: RouteContext) {
   const { id } = await params;
-  const supabase = await createSupabaseServerClient();
+  const currentUser = await getCurrentUser();
 
-  const { data: market, error } = await supabase
-    .from("market_stats")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) {
-    const fallbackMarket = demoMarketStats.find((item) => item.id === id);
-    if (fallbackMarket) {
-      console.error("Supabase market detail unavailable:", error.message);
-      return ok({
-        ...fallbackMarket,
-        user_vote: null
-      });
-    }
-
-    return fail(error.message, 404);
+  if (!canUseSupabase()) {
+    return fail("Supabase is not configured for markets", 503);
   }
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const supabase = await createSupabaseServerClient();
 
-  let userVote: string | null = null;
+  const marketQuery = supabase.from("market_stats").select("*");
+  const { data: market, error } = await (isUuid(id)
+    ? marketQuery.eq("id", id).maybeSingle()
+    : marketQuery.eq("slug", id).maybeSingle());
 
-  if (user) {
-    const { data: vote } = await supabase
-      .from("votes")
-      .select("side")
-      .eq("market_id", id)
-      .eq("user_id", user.id)
-      .maybeSingle();
+  if (error || !market) {
+    return fail(error?.message ?? "Market not found", 404);
+  }
 
-    userVote = vote?.side ?? null;
+  let userPredictions: unknown[] = [];
+
+  if (currentUser) {
+    const { data: predictions } = await supabase
+      .from("predictions")
+      .select("id, side, amount, result_status, payout_amount, created_at")
+      .eq("market_id", market.id)
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false });
+
+    userPredictions = predictions ?? [];
   }
 
   return ok({
     ...market,
-    user_vote: userVote
+    user_predictions: userPredictions
   });
 }

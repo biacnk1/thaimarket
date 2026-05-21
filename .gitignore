@@ -11,3 +11,7 @@ node_modules
 dist
 coverage
 *.tsbuildinfo
+.data
+.codex
+.npm-cache
+dev-supabase.cmd

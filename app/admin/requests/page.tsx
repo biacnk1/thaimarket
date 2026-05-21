@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Clock, RefreshCw, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Clock, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 
 type MarketRequest = {
   id: string;
@@ -11,6 +11,8 @@ type MarketRequest = {
   closes_at: string;
   status: "pending" | "approved" | "rejected";
   requester_user_id: string | null;
+  reviewed_at?: string | null;
+  admin_note?: string | null;
   created_at: string;
 };
 
@@ -44,7 +46,8 @@ export default function AdminMarketRequestsPage() {
   const [requests, setRequests] = useState<MarketRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [approvingId, setApprovingId] = useState("");
+  const [actingId, setActingId] = useState("");
+  const [actingType, setActingType] = useState<"approve" | "reject" | "">("");
 
   async function loadRequests() {
     setLoading(true);
@@ -67,7 +70,8 @@ export default function AdminMarketRequestsPage() {
   }
 
   async function approveRequest(id: string) {
-    setApprovingId(id);
+    setActingId(id);
+    setActingType("approve");
     setError("");
 
     try {
@@ -81,15 +85,41 @@ export default function AdminMarketRequestsPage() {
         throw new Error(typeof json.error === "string" ? json.error : `Could not approve request (${res.status})`);
       }
 
-      setRequests((prev) =>
-        prev.map((request) =>
-          request.id === id ? { ...request, status: "approved" } : request
-        )
-      );
+      await loadRequests();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not approve request");
     } finally {
-      setApprovingId("");
+      setActingId("");
+      setActingType("");
+    }
+  }
+
+  async function rejectRequest(id: string) {
+    setActingId(id);
+    setActingType("reject");
+    setError("");
+
+    try {
+      const res = await fetch(`/api/admin/market-requests/${id}/reject`, {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ reason: "" })
+      });
+      const json = await readApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(typeof json.error === "string" ? json.error : `Could not reject request (${res.status})`);
+      }
+
+      await loadRequests();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not reject request");
+    } finally {
+      setActingId("");
+      setActingType("");
     }
   }
 
@@ -107,7 +137,7 @@ export default function AdminMarketRequestsPage() {
             </div>
             <h1 className="text-3xl font-bold">Market requests</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Review submitted boards before they become public markets. This page is ready for Supabase Auth admin roles.
+              Review submitted boards before they become public markets.
             </p>
           </div>
           <button
@@ -121,7 +151,7 @@ export default function AdminMarketRequestsPage() {
         {error && (
           <div className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
             {error === "Admin access required"
-              ? "Admin access required. After login is wired up, sign in with a user whose app_metadata.role is admin."
+              ? "Admin access required. Add the profile username to public.admin_users, then refresh."
               : error}
           </div>
         )}
@@ -134,7 +164,7 @@ export default function AdminMarketRequestsPage() {
           <div className="rounded-3xl border border-white/10 bg-white/[0.035] p-8 text-center">
             <Clock className="mx-auto mb-3 text-slate-500" size={24} />
             <p className="font-semibold text-white">No requests yet</p>
-            <p className="mt-2 text-sm text-slate-400">New Create Market submissions will appear here after Supabase is connected.</p>
+            <p className="mt-2 text-sm text-slate-400">New Create Market submissions will appear here.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -155,18 +185,30 @@ export default function AdminMarketRequestsPage() {
                       <p className="mt-3 text-sm leading-6 text-slate-400">{request.description}</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => approveRequest(request.id)}
-                    disabled={request.status !== "pending" || approvingId === request.id}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <CheckCircle2 size={16} />
-                    {approvingId === request.id ? "Approving..." : "Approve"}
-                  </button>
+                  <div className="flex flex-col gap-2 sm:flex-row md:flex-col">
+                    <button
+                      onClick={() => approveRequest(request.id)}
+                      disabled={request.status !== "pending" || actingId === request.id}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={16} />
+                      {actingId === request.id && actingType === "approve" ? "Approving..." : "Approve"}
+                    </button>
+                    <button
+                      onClick={() => rejectRequest(request.id)}
+                      disabled={request.status !== "pending" || actingId === request.id}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-rose-300/30 bg-rose-400/10 px-4 py-3 text-sm font-semibold text-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <XCircle size={16} />
+                      {actingId === request.id && actingType === "reject" ? "Rejecting..." : "Reject"}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-3 text-xs text-slate-500 sm:grid-cols-2">
                   <span>Close: {formatDate(request.closes_at)}</span>
                   <span>Submitted: {formatDate(request.created_at)}</span>
+                  {request.reviewed_at && <span>Reviewed: {formatDate(request.reviewed_at)}</span>}
+                  {request.admin_note && <span>Reason: {request.admin_note}</span>}
                 </div>
               </article>
             ))}
