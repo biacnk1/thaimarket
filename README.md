@@ -104,9 +104,18 @@ git push -u origin main
 
 1. Open Vercel.
 2. Import GitHub repo.
-3. Add env vars:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Add these env vars in **Project Settings -> Environment Variables**:
+
+   ```env
+   APP_DATA_MODE=supabase
+   NEXT_PUBLIC_APP_DATA_MODE=supabase
+   NEXT_PUBLIC_SUPABASE_URL=<your Supabase project URL>
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<your Supabase anon public key>
+   SUPABASE_SERVICE_ROLE_KEY=<your Supabase service role key>
+   ADMIN_EMAILS=<optional comma-separated admin emails>
+   ```
+
+   Keep real values in Vercel and `.env.local` only. Do not commit real Supabase keys.
 4. Deploy.
 
 ### 3. Tester links
